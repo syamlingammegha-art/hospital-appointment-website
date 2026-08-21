@@ -5,11 +5,11 @@ import {
   ClipboardList,
   Users,
   Stethoscope,
+  FileText,
   LogOut,
   HeartPulse,
   Phone,
 } from "lucide-react";
-
 export default function StaffSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -40,6 +40,11 @@ export default function StaffSidebar() {
       icon: Stethoscope,
       path: "/doctors",
     },
+    {
+  label: "Medical Records",
+  icon: FileText,
+  path: "/medical-records",
+}
   ];
 
   const logout = () => {

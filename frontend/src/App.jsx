@@ -27,6 +27,7 @@ import DoctorSchedule from "./pages/DoctorSchedule";
 import DoctorProfile from "./pages/DoctorProfile";
 import DoctorSettings from "./pages/DoctorSettings";
 import Consultation from "./pages/Consultation";
+import PatientHistory from "./pages/PatientHistory";
 export default function App() {
   return (
     <Routes>
@@ -75,6 +76,7 @@ export default function App() {
 <Route path="/doctor-profile" element={<DoctorProfile />} />
 <Route path="/doctor-settings" element={<DoctorSettings />} />
 <Route path="/consultation/:id" element={<Consultation />} />
+<Route path="/patient-history/:id" element={<PatientHistory />} />
   </Routes>
     
   );

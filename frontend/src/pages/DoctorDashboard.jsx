@@ -1,930 +1,292 @@
 import { useEffect, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import api from "../services/api";
-
+import { useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard,
-  CalendarDays,
   Users,
-  Clock3,
-  UserRound,
-  LogOut,
-  Menu,
-  X,
-  Bell,
-  Search,
-  ChevronRight,
-  CheckCircle2,
   Clock,
-  XCircle,
+  CheckCircle,
+  Search,
+  Bell,
   Stethoscope,
-  Activity,
-  CalendarCheck,
-  Settings,
-  HeartPulse,
 } from "lucide-react";
 
-export default function DoctorDashboard() {
+import DoctorSidebar from "../components/DoctorSidebar";
+import api from "../services/api";
 
+export default function DoctorDashboard() {
   const navigate = useNavigate();
 
-  const [doctor, setDoctor] = useState(null);
-
   const [patients, setPatients] = useState([]);
-
-  const [loading, setLoading] = useState(true);
-
-  const [mobileMenu, setMobileMenu] =
-    useState(false);
-
-
-  // ==========================================
-  // GET LOGGED-IN DOCTOR
-  // ==========================================
+  const [doctor, setDoctor] = useState({});
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("user"));
 
-    const storedUser =
-      localStorage.getItem("user");
-
-    const token =
-      localStorage.getItem("token");
-
-    if (!storedUser || !token) {
+    if (!user || user.role !== "doctor") {
       navigate("/login");
       return;
     }
 
-    try {
-
-      const user =
-        JSON.parse(storedUser);
-
-      if (user.role !== "doctor") {
-        navigate("/login");
-        return;
-      }
-
-      setDoctor(user);
-
-    } catch (error) {
-
-      console.error(
-        "User parsing error:",
-        error
-      );
-
-      navigate("/login");
-    }
-
-  }, [navigate]);
-
-
-  // ==========================================
-  // LOAD DOCTOR QUEUE
-  // ==========================================
-
-  useEffect(() => {
+    setDoctor(user);
 
     loadQueue();
 
+    const interval = setInterval(loadQueue, 5000);
+
+    return () => clearInterval(interval);
   }, []);
 
-
   const loadQueue = async () => {
-
     try {
-
-      setLoading(true);
-
-      const token =
-        localStorage.getItem("token");
-
-      if (!token) {
-        navigate("/login");
-        return;
-      }
-
-      console.log(
-        "Loading doctor queue..."
-      );
-
-      const res =
-        await api.get("/doctor/queue");
-
-      console.log(
-        "Doctor queue:",
-        res.data
-      );
-
-      setPatients(
-        Array.isArray(res.data)
-          ? res.data
-          : []
-      );
-
-    } catch (error) {
-
-      console.error(
-        "Failed to fetch doctor queue:",
-        error.response?.data || error
-      );
-
-      if (
-        error.response?.status === 401
-      ) {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-
-        navigate("/login");
-
-        return;
-      }
-
-      setPatients([]);
-
-    } finally {
-
-      setLoading(false);
-
+      const res = await api.get("/doctor/queue");
+      setPatients(res.data);
+    } catch (err) {
+      console.error(err);
     }
-
   };
 
+  const updateStatus = async (id, status) => {
+    try {
+      await api.put(`/doctor/status/${id}`, { status });
 
-  // ==========================================
-  // LOGOUT
-  // ==========================================
-
-  const handleLogout = () => {
-
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-
-    navigate("/login");
-  };
-
-
-  // ==========================================
-  // TODAY
-  // ==========================================
-
-  const today =
-    new Date()
-      .toISOString()
-      .split("T")[0];
-
-
-  const todayPatients =
-    patients.filter(
-      (patient) =>
-        patient.appointment_date === today
-    );
-
-
-  // ==========================================
-  // STATISTICS
-  // ==========================================
-
-  const completedPatients =
-    patients.filter(
-      (patient) =>
-        patient.status?.toLowerCase() ===
-        "completed"
-    );
-
-
-  const pendingPatients =
-    patients.filter(
-      (patient) =>
-        patient.status?.toLowerCase() ===
-        "pending"
-    );
-
-
-  const cancelledPatients =
-    patients.filter(
-      (patient) =>
-        patient.status?.toLowerCase() ===
-        "cancelled"
-    );
-
-
-  // ==========================================
-  // START CONSULTATION
-  // ==========================================
-
-  const startConsultation = (patient) => {
-
-    navigate(
-      `/consultation/${patient.id}`
-    );
-
-  };
-
-
-  // ==========================================
-  // STATUS STYLE
-  // ==========================================
-
-  const getStatusStyle = (status) => {
-
-    switch (
-      status?.toLowerCase()
-    ) {
-
-      case "completed":
-        return "bg-green-50 text-green-600";
-
-      case "cancelled":
-        return "bg-red-50 text-red-600";
-
-      case "confirmed":
-        return "bg-blue-50 text-blue-600";
-
-      default:
-        return "bg-orange-50 text-orange-600";
+      loadQueue();
+    } catch (err) {
+      console.error(err);
     }
-
   };
 
+  const filtered = patients.filter((p) =>
+    p.patient_name.toLowerCase().includes(search.toLowerCase())
+  );
 
-  // ==========================================
-  // SIDEBAR
-  // ==========================================
+  return (
+    <div className="min-h-screen bg-slate-100 flex">
 
-  const Sidebar = () => (
+      <DoctorSidebar />
 
-    <aside
-      className={`
-        fixed left-0 top-0 z-50 h-screen w-72
-        bg-[#06202e] text-white
-        transition-transform duration-300
-        lg:translate-x-0
-        ${
-          mobileMenu
-            ? "translate-x-0"
-            : "-translate-x-full"
-        }
-      `}
-    >
+      <main className="flex-1 ml-72">
 
-      {/* Logo */}
-
-      <div className="flex h-20 items-center justify-between border-b border-white/10 px-6">
-
-        <Link
-          to="/doctor-dashboard"
-          className="flex items-center gap-3"
-        >
-
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-400 text-[#06202e]">
-
-            <HeartPulse size={25} />
-
-          </div>
+        <header className="bg-white px-8 py-5 flex justify-between items-center shadow-sm">
 
           <div>
 
-            <h1 className="text-xl font-bold">
-              MediCare
+            <h1 className="text-3xl font-bold">
+              Welcome Dr. {doctor.name}
             </h1>
 
-            <p className="text-xs text-slate-400">
-              Doctor Portal
+            <p className="text-gray-500">
+              Manage today's consultations.
             </p>
 
           </div>
 
-        </Link>
-
-        <button
-          onClick={() =>
-            setMobileMenu(false)
-          }
-          className="lg:hidden"
-        >
-          <X size={22} />
-        </button>
-
-      </div>
-
-
-      {/* Doctor */}
-
-      <div className="mx-5 mt-6 rounded-2xl bg-white/5 p-4">
-
-        <div className="flex items-center gap-3">
-
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-teal-400 text-[#06202e]">
-
-            {doctor?.photo ? (
-
-              <img
-                src={doctor.photo}
-                alt="Doctor"
-                className="h-full w-full rounded-full object-cover"
-              />
-
-            ) : (
-
-              <Stethoscope size={22} />
-
-            )}
-
-          </div>
-
-          <div className="min-w-0">
-
-            <p className="truncate font-semibold">
-
-              Dr.{" "}
-              {doctor?.full_name ||
-                doctor?.name ||
-                "Doctor"}
-
-            </p>
-
-            <p className="text-xs text-slate-400">
-              Medical Professional
-            </p>
-
-          </div>
-
-        </div>
-
-      </div>
-
-
-      {/* Navigation */}
-
-      <nav className="mt-8 px-4">
-
-        <p className="mb-3 px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-          Main Menu
-        </p>
-
-        <SidebarItem
-          icon={
-            <LayoutDashboard
-              size={19}
-            />
-          }
-          label="Dashboard"
-          active
-        />
-
-        <SidebarItem
-          icon={
-            <CalendarDays
-              size={19}
-            />
-          }
-          label="Appointments"
-          onClick={() =>
-            navigate(
-              "/doctor-appointments"
-            )
-          }
-        />
-
-        <SidebarItem
-          icon={
-            <Users size={19} />
-          }
-          label="My Patients"
-          onClick={() =>
-            navigate(
-              "/doctor-patients"
-            )
-          }
-        />
-
-        <SidebarItem
-          icon={
-            <Clock3 size={19} />
-          }
-          label="My Schedule"
-          onClick={() =>
-            navigate(
-              "/doctor-schedule"
-            )
-          }
-        />
-
-        <p className="mb-3 mt-8 px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-          Account
-        </p>
-
-        <SidebarItem
-          icon={
-            <UserRound size={19} />
-          }
-          label="My Profile"
-          onClick={() =>
-            navigate(
-              "/doctor-profile"
-            )
-          }
-        />
-
-        <SidebarItem
-          icon={
-            <Settings size={19}
-            />
-          }
-          label="Settings"
-          onClick={() =>
-            navigate(
-              "/doctor-settings"
-            )
-          }
-        />
-
-      </nav>
-
-
-      {/* Logout */}
-
-      <div className="absolute bottom-5 left-0 w-full px-4">
-
-        <button
-          onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-slate-300 transition hover:bg-red-500/10 hover:text-red-400"
-        >
-
-          <LogOut size={19} />
-
-          <span className="font-medium">
-            Logout
-          </span>
-
-        </button>
-
-      </div>
-
-    </aside>
-
-  );
-
-
-  // ==========================================
-  // SIDEBAR ITEM
-  // ==========================================
-
-  const SidebarItem = ({
-    icon,
-    label,
-    active,
-    onClick,
-  }) => (
-
-    <button
-      onClick={onClick}
-      className={`
-        mb-1 flex w-full items-center gap-3
-        rounded-xl px-4 py-3
-        text-sm font-medium
-        transition
-        ${
-          active
-            ? "bg-teal-400 text-[#06202e]"
-            : "text-slate-300 hover:bg-white/5 hover:text-white"
-        }
-      `}
-    >
-
-      {icon}
-
-      <span>
-        {label}
-      </span>
-
-    </button>
-
-  );
-
-
-  // ==========================================
-  // RETURN
-  // ==========================================
-
-  return (
-
-    <div className="min-h-screen bg-[#f5f8fa]">
-
-      <Sidebar />
-
-
-      {mobileMenu && (
-
-        <div
-          onClick={() =>
-            setMobileMenu(false)
-          }
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
-        />
-
-      )}
-
-
-      <main className="lg:ml-72">
-
-        {/* HEADER */}
-
-        <header className="sticky top-0 z-30 flex h-20 items-center justify-between border-b border-slate-200 bg-white/95 px-5 sm:px-8">
-
-          <div className="flex items-center gap-4">
-
-            <button
-              onClick={() =>
-                setMobileMenu(true)
-              }
-              className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
-            >
-              <Menu size={24} />
-            </button>
-
-            <div>
-
-              <h1 className="text-xl font-bold text-slate-900">
-                Doctor Dashboard
-              </h1>
-
-              <p className="hidden text-xs text-slate-500 sm:block">
-                Manage your patients and today's queue
-              </p>
-
-            </div>
-
-          </div>
-
-
-          <div className="flex items-center gap-3">
-
-            <button className="rounded-xl p-2.5 text-slate-500 hover:bg-slate-100">
-              <Bell size={20} />
-            </button>
-
-            <div className="hidden items-center gap-3 border-l border-slate-200 pl-4 sm:flex">
-
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-100 text-teal-700">
-
-                <Stethoscope size={19} />
-
-              </div>
-
-              <div>
-
-                <p className="text-sm font-semibold text-slate-800">
-
-                  Dr.{" "}
-                  {doctor?.full_name ||
-                    doctor?.name ||
-                    "Doctor"}
-
-                </p>
-
-                <p className="text-xs text-slate-400">
-                  Doctor
-                </p>
-
-              </div>
-
-            </div>
-
-          </div>
+          <Bell className="text-gray-500" />
 
         </header>
 
+        <div className="p-8">
 
-        {/* CONTENT */}
+          <div className="relative mb-6">
 
-        <div className="p-5 sm:p-8">
+            <Search className="absolute left-3 top-3 text-gray-400" />
 
-          {/* WELCOME */}
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search patient..."
+              className="w-full border rounded-xl pl-10 py-3"
+            />
 
-          <section className="mb-8 rounded-3xl bg-gradient-to-r from-[#06202e] to-[#0b5960] p-7 text-white shadow-xl">
+          </div>
 
-            <p className="mb-2 text-sm font-medium text-teal-300">
-              Good day, Doctor 👋
-            </p>
-
-            <h2 className="text-3xl font-bold">
-              Welcome back, Dr.{" "}
-              {doctor?.full_name ||
-                doctor?.name ||
-                "Doctor"}
-            </h2>
-
-            <p className="mt-3 text-sm text-slate-300">
-              Here is your current patient queue.
-            </p>
-
-          </section>
-
-
-          {/* STATISTICS */}
-
-          <section className="mb-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid md:grid-cols-3 gap-6 mb-8">
 
             <StatCard
+              icon={Users}
               title="Today's Patients"
-              value={
-                todayPatients.length
-              }
-              icon={
-                <CalendarCheck
-                  size={23}
-                />
-              }
-              iconBg="bg-blue-50"
-              iconColor="text-blue-600"
-            />
-
-            <StatCard
-              title="Total Patients"
               value={patients.length}
-              icon={
-                <Users size={23} />
-              }
-              iconBg="bg-purple-50"
-              iconColor="text-purple-600"
             />
 
             <StatCard
+              icon={Clock}
+              title="Waiting"
+              value={
+                patients.filter((p) => p.status === "Pending").length
+              }
+            />
+
+            <StatCard
+              icon={CheckCircle}
               title="Completed"
               value={
-                completedPatients.length
+                patients.filter((p) => p.status === "Completed").length
               }
-              icon={
-                <CheckCircle2
-                  size={23}
-                />
-              }
-              iconBg="bg-green-50"
-              iconColor="text-green-600"
             />
 
-            <StatCard
-              title="Pending"
-              value={
-                pendingPatients.length
-              }
-              icon={
-                <Clock size={23} />
-              }
-              iconBg="bg-orange-50"
-              iconColor="text-orange-600"
-            />
+          </div>
 
-          </section>
+          <div className="bg-white rounded-3xl shadow overflow-hidden">
 
-
-          {/* PATIENT QUEUE */}
-
-          <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-
-            <div className="flex items-center justify-between border-b border-slate-100 p-6">
-
-              <div>
-
-                <h3 className="text-lg font-bold text-slate-900">
-                  Today's Patient Queue
-                </h3>
-
-                <p className="mt-1 text-sm text-slate-500">
-                  Patients assigned to you
-                </p>
-
-              </div>
-
-              <button
-                onClick={loadQueue}
-                className="text-sm font-semibold text-teal-600 hover:text-teal-700"
-              >
-                Refresh
-              </button>
-
+            <div className="p-5 border-b">
+              <h2 className="text-xl font-bold">
+                Live Patient Queue
+              </h2>
             </div>
 
+            <table className="w-full">
 
-            {/* LOADING */}
+              <thead className="bg-slate-50">
 
-            {loading ? (
+                <tr>
 
-              <div className="flex h-60 items-center justify-center">
+                  <th className="p-4 text-left">OP No</th>
 
-                <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-teal-500" />
+                  <th className="p-4 text-left">Patient</th>
 
-              </div>
+                  <th className="p-4 text-left">Complaint</th>
 
-            ) : todayPatients.length === 0 ? (
+                  <th className="p-4 text-left">Time</th>
 
-              <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+                  <th className="p-4 text-left">Status</th>
 
-                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100">
+                  <th className="p-4 text-left">Action</th>
 
-                  <Users
-                    size={28}
-                    className="text-slate-400"
-                  />
+                </tr>
 
-                </div>
+              </thead>
 
-                <h4 className="font-semibold text-slate-800">
-                  No patients in today's queue
-                </h4>
+              <tbody>
 
-                <p className="mt-1 text-sm text-slate-500">
-                  Patients assigned to you will appear here.
-                </p>
+                {filtered.map((p) => (
 
-              </div>
+                  <tr key={p.id} className="border-t">
 
-            ) : (
+                    <td className="p-4 font-semibold">
+                      {p.op_number}
+                    </td>
 
-              <div className="divide-y divide-slate-100">
+                    <td className="p-4">
 
-                {todayPatients.map(
-                  (patient) => (
+                      <div className="flex items-center gap-3">
 
-                    <div
-                      key={patient.id}
-                      className="flex flex-col gap-4 p-5 hover:bg-slate-50 lg:flex-row lg:items-center lg:justify-between"
-                    >
-
-                      {/* Patient */}
-
-                      <div className="flex items-center gap-4">
-
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-teal-50 font-bold text-teal-700">
-
-                          {patient.patient_name
-                            ?.charAt(0)
-                            .toUpperCase() ||
-                            "P"}
-
-                        </div>
+                        <img
+                          src={`https://ui-avatars.com/api/?name=${p.patient_name}&background=0D9488&color=fff`}
+                          className="w-10 h-10 rounded-full"
+                        />
 
                         <div>
 
-                          <h4 className="font-semibold text-slate-800">
-
-                            {patient.patient_name}
-
-                          </h4>
-
-                          <p className="text-xs text-slate-500">
-
-                            OP:{" "}
-                            {patient.op_number}
-
+                          <p className="font-semibold">
+                            {p.patient_name}
                           </p>
 
-                          <p className="text-xs text-slate-500">
-
-                            Age:{" "}
-                            {patient.age}
-                            {" • "}
-                            {patient.gender}
-
+                          <p className="text-sm text-gray-500">
+                            {p.phone}
                           </p>
 
                         </div>
 
                       </div>
 
+                    </td>
 
-                      {/* Time */}
+                    <td className="p-4">
+                      {p.chief_complaint}
+                    </td>
 
-                      <div className="flex items-center gap-2 text-sm text-slate-600">
+                    <td className="p-4">
+                      {p.appointment_time}
+                    </td>
 
-                        <Clock3
-                          size={17}
-                          className="text-teal-500"
-                        />
-
-                        {patient.appointment_time ||
-                          "Time not set"}
-
-                      </div>
-
-
-                      {/* Priority */}
-
-                      <span className="w-fit rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-600">
-
-                        {patient.priority ||
-                          "Normal"}
-
-                      </span>
-
-
-                      {/* Status */}
+                    <td className="p-4">
 
                       <span
-                        className={`w-fit rounded-full px-3 py-1.5 text-xs font-semibold ${getStatusStyle(
-                          patient.status
-                        )}`}
+                        className={`px-3 py-1 rounded-full text-xs ${
+                          p.status === "Pending"
+                            ? "bg-yellow-100 text-yellow-700"
+                            : p.status === "In Consultation"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-green-100 text-green-700"
+                        }`}
                       >
-
-                        {patient.status ||
-                          "Pending"}
-
+                        {p.status}
                       </span>
 
+                    </td>
 
-                      {/* Consultation */}
+                    <td className="p-4">
 
-                      <button
-                        onClick={() =>
-                          startConsultation(
-                            patient
-                          )
-                        }
-                        disabled={
-                          patient.status?.toLowerCase() ===
-                          "completed"
-                        }
-                        className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-                      >
+                      {p.status === "Pending" && (
 
-                        {patient.status?.toLowerCase() ===
-                        "completed"
-                          ? "Completed"
-                          : "Start Consultation"}
+                        <button
+                          onClick={() =>
+                            updateStatus(
+                              p.id,
+                              "In Consultation"
+                            )
+                          }
+                          className="bg-blue-600 text-white px-4 py-2 rounded-lg"
+                        >
+                          Call Patient
+                        </button>
 
-                      </button>
+                      )}
 
-                    </div>
+                      {p.status === "In Consultation" && (
+  <button
+    onClick={() => navigate(`/consultation/${p.id}`)}
+    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+  >
+    Start Consultation
+  </button>
+)}
 
-                  )
+                    </td>
+
+                  </tr>
+
+                ))}
+
+                {filtered.length === 0 && (
+
+                  <tr>
+
+                    <td
+                      colSpan="6"
+                      className="p-10 text-center text-gray-500"
+                    >
+                      No patients assigned today.
+                    </td>
+
+                  </tr>
+
                 )}
 
-              </div>
+              </tbody>
 
-            )}
+            </table>
 
-          </section>
+          </div>
 
         </div>
 
       </main>
 
     </div>
-
   );
 }
 
-
-// ==========================================
-// STAT CARD
-// ==========================================
-
-function StatCard({
-  title,
-  value,
-  icon,
-  iconBg,
-  iconColor,
-}) {
-
+function StatCard({ icon: Icon, title, value }) {
   return (
-
-    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-
-      <div className="flex items-start justify-between">
-
+    <div className="bg-white rounded-2xl shadow p-6">
+      <div className="flex justify-between items-center">
         <div>
-
-          <p className="text-sm font-medium text-slate-500">
-            {title}
-          </p>
-
-          <h3 className="mt-2 text-3xl font-bold text-slate-900">
-            {value}
-          </h3>
-
+          <p className="text-gray-500">{title}</p>
+          <h2 className="text-3xl font-bold mt-2">{value}</h2>
         </div>
 
-        <div
-          className={`flex h-12 w-12 items-center justify-center rounded-2xl ${iconBg} ${iconColor}`}
-        >
-          {icon}
-        </div>
-
+        <Icon className="text-teal-600" size={34} />
       </div>
-
-      <div className="mt-4 flex items-center gap-1 text-xs text-slate-400">
-
-        <Activity size={13} />
-
-        Updated automatically
-
-      </div>
-
     </div>
-
   );
 }

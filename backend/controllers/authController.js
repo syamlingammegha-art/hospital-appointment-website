@@ -39,24 +39,29 @@ export const login = async (req, res) => {
 
     console.log("Login attempt:", email);
 
-    const [users] = await pool.query(
+    const [rows] = await pool.query(
       "SELECT * FROM users WHERE email = ?",
       [email]
     );
 
-    console.log("User found:", users.length);
-
-    if (users.length === 0) {
+    if (rows.length === 0) {
       return res.status(401).json({
         message: "Invalid email or password",
       });
     }
 
-    const user = users[0];
+    const user = rows[0];
+
+    console.log("User found:", user.id);
+    console.log("Password column:", user.password);
+
+    if (!user.password) {
+      return res.status(500).json({
+        message: "Password hash missing in database",
+      });
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
-
-    console.log("Password match:", isMatch);
 
     if (!isMatch) {
       return res.status(401).json({
@@ -74,19 +79,14 @@ export const login = async (req, res) => {
     );
 
     res.json({
-  message: "Login Successful",
-  token,
-  user: {
-    id: user.id,
-    name: user.full_name,
-    email: user.email,
-    phone: user.phone,
-    age: user.age,
-    gender: user.gender,
-    role: user.role,
-  },
-});
-
+      token,
+      user: {
+        id: user.id,
+        name: user.full_name,
+        email: user.email,
+        role: user.role,
+      },
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({

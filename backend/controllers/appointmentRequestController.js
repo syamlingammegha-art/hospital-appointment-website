@@ -62,7 +62,7 @@ export const createAppointmentRequest = async (req, res) => {
 // Patient sees own requests
 export const getPatientRequests = async (req, res) => {
   try {
-    const { patientId } = req.params;
+    const patientId = req.user.id; // Comes from JWT
 
     const [rows] = await pool.query(
       `SELECT *
